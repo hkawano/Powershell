@@ -1,0 +1,58 @@
+# Filename of the export 
+$filename = "RDS-CAL-Report.csv"
+# Import RDS PowerShell Module
+import-module remotedesktopservices
+
+# Open RDS Location
+Set-Location -path rds:
+
+# Remove previous reports (Optional)
+remove-item RDS:\LicenseServer\IssuedLicenses\PerUserLicenseReports\* -Recurse
+
+# Create new RDS report
+$NewReport = new-item -path RDS:\LicenseServer\IssuedLicenses\PerUserLicenseReports -Scope DOM -Name Report
+
+# Name is automatically generated 
+$NewReportName = $NewReport.name
+
+# Get issued licenses 
+$IssuedLicenseCount = get-item RDS:\LicenseServer\IssuedLicenses\PerUserLicenseReports\$NewReportName\Win2K8-Win2K8R2\IssuedCount
+# Count issued licenses 
+$IssuedLicenseCountValue = $IssuedLicenseCount.CurrentValue
+
+# Get installed licenses 
+$InstalledLicenseCount = get-item RDS:\LicenseServer\IssuedLicenses\PerUserLicenseReports\$NewReportName\Win2K8-Win2K8R2\InstalledCount
+# Count installed licenses 
+$InstalledLicenseCountValue = $InstalledLicenseCount.CurrentValue
+
+# Installed - Issued
+$Available = $InstalledLicenseCount.CurrentValue - $IssuedLicenseCount.CurrentValue
+# Show percentage available 
+$AvailablePercent = ($Available /$InstalledLicenseCount.CurrentValue)*100 
+$AvailablePercent = "{0:N0}" -f $AvailablePercent
+
+# Display info
+
+Write-host "Installed: $InstalledLicenseCountValue"
+Write-host "Issued: $IssuedLicenseCountValue"
+Write-host "Available: $Available [ $AvailablePercent % ]"
+
+# Add the information into an Array 
+
+[System.Collections.ArrayList]$collection = New-Object System.Collections.ArrayList($null)
+$obj = @{
+Installed = $InstalledLicenseCountValue
+Available = $Available
+AvailablePercent = $AvailablePercent
+Issued = $IssuedLicenseCountValue
+Date = get-date
+}
+
+# Exit RDS location
+set-location c:
+
+# Create PSO Object with the data
+$collection.Add((New-Object PSObject -Property $obj));
+
+# Export Data into a file 
+$collection | export-csv $filename  -NoTypeInformation -Encoding UTF8
